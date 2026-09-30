@@ -50,13 +50,13 @@ flowchart LR
 
 ## Local setup
 
-Requirements: Docker Desktop / Docker Engine with Compose.
+Requirements: Docker Desktop / Docker Engine with the Compose plugin, plus enough memory for the API and worker images. The first image build downloads the Python and Node dependencies.
 
 ```bash
 cp .env.example .env
 ```
 
-For a local setup, set a unique `POSTGRES_PASSWORD` in `.env`. The provider keys are optional for starting the services; ingestion and grounded generation need their respective keys when used.
+The sample PostgreSQL password is only for a private local development stack. Provider keys are optional for starting the services. The application will report a clear configuration error if you try a provider-backed feature without its key.
 
 Optional backend API-key gate:
 
@@ -82,6 +82,10 @@ curl http://localhost:8000/ready
 `/health` verifies the API process. `/ready` verifies PostgreSQL, Redis, and Qdrant connectivity.
 
 Open `http://localhost:3000` for the application.
+
+The local stack does not need Cohere or Gemini keys to start. PDF ingestion requires `COHERE_API_KEY`; grounded queries require both `COHERE_API_KEY` and `GEMINI_API_KEY`. The first query also downloads the local Cross-Encoder model and therefore needs access to the model host. The checked-in evaluation dataset intentionally contains placeholders, so `/evaluate` reports that it is not runnable until real document IDs, expected answers, and relevant chunk IDs are supplied. No scores are generated from placeholder data.
+
+For PowerShell, create the environment file with `Copy-Item .env.example .env`; on macOS/Linux use `cp .env.example .env`. In both cases the intended startup command is `docker compose up --build` from the repository root.
 
 ## Services
 
