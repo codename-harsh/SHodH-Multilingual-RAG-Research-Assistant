@@ -1,0 +1,1 @@
+Chunking tests are added in backend/tests/ during the ingestion implementation stage.

@@ -1,0 +1,17 @@
+[
+  {"id":"sample-01","question":"What is the main purpose of this document?","language":"en","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"Replace with the expected answer.","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-02","question":"What are the key findings?","language":"en","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"Replace with the expected answer.","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-03","question":"When was the study conducted?","language":"en","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"Replace with the expected answer.","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-04","question":"What methodology was used?","language":"en","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"Replace with the expected answer.","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-05","question":"What are the main limitations?","language":"en","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"Replace with the expected answer.","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-06","question":"इस दस्तावेज़ का मुख्य उद्देश्य क्या है?","language":"hi","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"अपेक्षित उत्तर यहाँ भरें।","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-07","question":"मुख्य निष्कर्ष क्या हैं?","language":"hi","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"अपेक्षित उत्तर यहाँ भरें।","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-08","question":"अध्ययन कब किया गया था?","language":"hi","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"अपेक्षित उत्तर यहाँ भरें।","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-09","question":"What evidence supports the conclusion?","language":"en","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"Replace with the expected answer.","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-10","question":"Which risks are identified?","language":"en","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"Replace with the expected answer.","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-11","question":"इसमें किन जोखिमों की पहचान की गई है?","language":"hi","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"अपेक्षित उत्तर यहाँ भरें।","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-12","question":"What recommendation does the document make?","language":"en","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"Replace with the expected answer.","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-13","question":"What data sources were used?","language":"en","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"Replace with the expected answer.","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-14","question":"दस्तावेज़ में किस डेटा स्रोत का उपयोग किया गया है?","language":"hi","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"अपेक्षित उत्तर यहाँ भरें।","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]},
+  {"id":"sample-15","question":"What is the final conclusion?","language":"en","doc_id":"REPLACE_WITH_DOC_ID","expected_answer":"Replace with the expected answer.","relevant_chunk_ids":["REPLACE_WITH_CHUNK_ID"]}
+]

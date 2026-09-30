@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --background: 222 25% 98%; --foreground: 222 30% 12%; --border: 220 15% 88%; }
+.dark { --background: 222 25% 8%; --foreground: 220 20% 96%; --border: 220 14% 20%; }
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body { margin: 0; background: hsl(var(--background)); color: hsl(var(--foreground)); font-family: Arial, Helvetica, sans-serif; }
+button, input, textarea, select { font: inherit; }
+::selection { background: hsl(var(--foreground)); color: hsl(var(--background)); }
