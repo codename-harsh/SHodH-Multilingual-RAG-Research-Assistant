@@ -1,0 +1,203 @@
+services:
+  qdrant:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1G"
+    image: qdrant/qdrant:v1.13.2
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks: [shodh]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  postgres:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1G"
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: shodh
+      POSTGRES_USER: shodh
+      POSTGRES_PASSWORD: shodh
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [shodh]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shodh -d shodh"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1G"
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks: [shodh]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1G"
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://shodh:shodh@postgres:5432/shodh
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      COHERE_API_KEY: ${COHERE_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      SHODH_API_KEY: ${SHODH_API_KEY:-}
+      APP_ENV: ${APP_ENV:-development}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      HYBRID_ALPHA: ${HYBRID_ALPHA:-0.7}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    networks: [shodh]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  worker:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1G"
+    build:
+      context: .
+      dockerfile: backend/worker.Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://shodh:shodh@postgres:5432/shodh
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+      COHERE_API_KEY: ${COHERE_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      SHODH_API_KEY: ${SHODH_API_KEY:-}
+      APP_ENV: ${APP_ENV:-development}
+      HYBRID_ALPHA: ${HYBRID_ALPHA:-0.7}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    volumes:
+      - uploads:/data/uploads
+    networks: [shodh]
+
+  frontend:
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1G"
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_API_KEY: ${NEXT_PUBLIC_API_KEY:-}
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [shodh]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+
+networks:
+  shodh:
+    name: shodh
+    driver: bridge
+
+volumes:
+  qdrant_data:
+  postgres_data:
+  redis_data:
+  uploads:
