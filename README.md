@@ -56,20 +56,15 @@ Requirements: Docker Desktop / Docker Engine with Compose.
 cp .env.example .env
 ```
 
-Set at least:
+For a local setup, set a unique `POSTGRES_PASSWORD` in `.env`. The provider keys are optional for starting the services; ingestion and grounded generation need their respective keys when used.
 
-```dotenv
-COHERE_API_KEY=your_key
-GEMINI_API_KEY=your_key
-```
-
-Optional local gate:
+Optional backend API-key gate:
 
 ```dotenv
 SHODH_API_KEY=your_local_key
 ```
 
-If `SHODH_API_KEY` is set, configure the same value as `NEXT_PUBLIC_API_KEY` for the frontend build/runtime environment.
+Set `NEXT_PUBLIC_REQUIRE_API_KEY=true` to show the key-entry gate in the UI. Keep `SHODH_API_KEY` only in the backend environment; users enter it in the UI and it is sent in the request header. Never put the secret itself in a `NEXT_PUBLIC_*` variable.
 
 Start the stack:
 
@@ -218,14 +213,13 @@ The deployment workflow is designed around:
 
 ```bash
 cp .env.example .env
-# add COHERE_API_KEY and GEMINI_API_KEY
 docker compose up --build -d
 docker compose ps
 curl http://localhost:8000/health
 curl http://localhost:8000/ready
 ```
 
-Open `http://localhost:3000`. For a protected demo, set `SHODH_API_KEY` and the matching `NEXT_PUBLIC_API_KEY` before rebuilding the frontend.
+Open `http://localhost:3000`. To enable the optional key gate, set `SHODH_API_KEY` and `NEXT_PUBLIC_REQUIRE_API_KEY=true` in `.env`, then rebuild the frontend. Provider keys are only needed to run ingestion and generation.
 
 ### Railway / Render
 

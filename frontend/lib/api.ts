@@ -1,14 +1,16 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/+$/, "");
 
-function headers() {
+function requestHeaders(initial?: HeadersInit): Headers {
+  const result = new Headers(initial);
   const key = typeof window !== "undefined" ? localStorage.getItem("shodh-api-key") : null;
-  return key ? { "X-API-Key": key } : {};
+  if (key && !result.has("X-API-Key")) result.set("X-API-Key", key);
+  return result;
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: { ...headers(), ...(init.headers ?? {}) },
+    headers: requestHeaders(init.headers),
   });
   if (!response.ok) {
     const body = await response.text();

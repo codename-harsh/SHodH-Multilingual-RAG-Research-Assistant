@@ -1,4 +1,7 @@
+import asyncio
+
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from redis.asyncio import Redis
@@ -40,7 +43,7 @@ async def health() -> dict[str, str]:
 
 
 @app.get("/ready", tags=["system"])
-async def ready() -> dict[str, object]:
+async def ready() -> JSONResponse:
     checks: dict[str, str] = {}
     try:
         async with engine.connect() as conn:
@@ -49,19 +52,30 @@ async def ready() -> dict[str, object]:
     except Exception:
         checks["postgres"] = "error"
 
+    redis = None
     try:
         redis = Redis.from_url(settings.redis_url)
         await redis.ping()
-        await redis.aclose()
         checks["redis"] = "ok"
     except Exception:
         checks["redis"] = "error"
+    finally:
+        if redis is not None:
+            await redis.aclose()
 
+    qdrant = None
     try:
-        QdrantClient(url=settings.qdrant_url).get_collections()
+        qdrant = QdrantClient(url=settings.qdrant_url, timeout=2)
+        await asyncio.to_thread(qdrant.get_collections)
         checks["qdrant"] = "ok"
     except Exception:
         checks["qdrant"] = "error"
+    finally:
+        if qdrant is not None:
+            qdrant.close()
 
     healthy = all(value == "ok" for value in checks.values())
-    return {"status": "ready" if healthy else "degraded", "checks": checks}
+    return JSONResponse(
+        status_code=200 if healthy else 503,
+        content={"status": "ready" if healthy else "degraded", "checks": checks},
+    )

@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const required = Boolean(process.env.NEXT_PUBLIC_API_KEY);
+  // This is a public UI switch only. The shared API key is configured on the
+  // backend and must never be embedded in the browser bundle.
+  const required = process.env.NEXT_PUBLIC_REQUIRE_API_KEY === "true";
   const [ready, setReady] = useState(!required);
   const [key, setKey] = useState("");
 
