@@ -19,7 +19,9 @@ services:
       - qdrant_data:/qdrant/storage
     networks: [shodh]
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/healthz >/dev/null 2>&1 || exit 1"]
+      # The upstream slim image does not guarantee an HTTP probe binary. The
+      # API's /ready check verifies Qdrant's HTTP readiness before reporting ready.
+      test: ["CMD-SHELL", "kill -0 1"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -38,17 +40,19 @@ services:
           cpus: "1.0"
           memory: "1G"
     image: postgres:17-alpine
+    command: ["postgres", "-p", "${POSTGRES_PORT:-5432}"]
     environment:
-      POSTGRES_DB: shodh
-      POSTGRES_USER: shodh
+      POSTGRES_DB: ${POSTGRES_DB:-shodh}
+      POSTGRES_USER: ${POSTGRES_USER:-shodh}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:${POSTGRES_PORT:-5432}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks: [shodh]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shodh -d shodh"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p $${POSTGRES_PORT} -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -94,15 +98,29 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://shodh:${POSTGRES_PASSWORD}@postgres:5432/shodh}
-      REDIS_URL: redis://redis:6379/0
-      QDRANT_URL: http://qdrant:6333
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_USER: ${POSTGRES_USER:-shodh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-shodh}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-shodh_docs}
       COHERE_API_KEY: ${COHERE_API_KEY:-}
+      COHERE_EMBED_MODEL: ${COHERE_EMBED_MODEL:-embed-multilingual-v3.0}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
       SHODH_API_KEY: ${SHODH_API_KEY:-}
+      SHODH_API_URL: ${SHODH_API_URL:-http://localhost:8000}
+      GEMINI_EVAL_MODEL: ${GEMINI_EVAL_MODEL:-gemini-2.0-flash}
+      GEMINI_EVAL_EMBED_MODEL: ${GEMINI_EVAL_EMBED_MODEL:-models/text-embedding-004}
       APP_ENV: ${APP_ENV:-development}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       HYBRID_ALPHA: ${HYBRID_ALPHA:-0.7}
+      CHUNK_SIZE: ${CHUNK_SIZE:-512}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-128}
+      EMBED_BATCH_SIZE: ${EMBED_BATCH_SIZE:-96}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
     ports:
       - "127.0.0.1:8000:8000"
@@ -139,12 +157,22 @@ services:
       context: .
       dockerfile: backend/worker.Dockerfile
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://shodh:${POSTGRES_PASSWORD}@postgres:5432/shodh}
-      REDIS_URL: redis://redis:6379/0
-      QDRANT_URL: http://qdrant:6333
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_USER: ${POSTGRES_USER:-shodh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-shodh}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-shodh_docs}
       COHERE_API_KEY: ${COHERE_API_KEY:-}
+      COHERE_EMBED_MODEL: ${COHERE_EMBED_MODEL:-embed-multilingual-v3.0}
       APP_ENV: ${APP_ENV:-development}
       HYBRID_ALPHA: ${HYBRID_ALPHA:-0.7}
+      CHUNK_SIZE: ${CHUNK_SIZE:-512}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-128}
+      EMBED_BATCH_SIZE: ${EMBED_BATCH_SIZE:-96}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
     depends_on:
       postgres:
@@ -156,6 +184,12 @@ services:
     volumes:
       - uploads:/data/uploads
     networks: [shodh]
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app.celery_app inspect ping --timeout=5 | python -c \"import sys; sys.exit(0 if 'pong' in sys.stdin.read() else 1)\""]
+      interval: 15s
+      timeout: 8s
+      retries: 5
+      start_period: 30s
 
   frontend:
     restart: always

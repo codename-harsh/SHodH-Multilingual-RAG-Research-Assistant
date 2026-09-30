@@ -44,35 +44,60 @@ async def health() -> dict[str, str]:
 
 @app.get("/ready", tags=["system"])
 async def ready() -> JSONResponse:
-    checks: dict[str, str] = {}
-    try:
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        checks["postgres"] = "ok"
-    except Exception:
-        checks["postgres"] = "error"
+    async def check_postgres() -> str:
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            return "ok"
+        except Exception:
+            return "error"
 
-    redis = None
-    try:
-        redis = Redis.from_url(settings.redis_url)
-        await redis.ping()
-        checks["redis"] = "ok"
-    except Exception:
-        checks["redis"] = "error"
-    finally:
-        if redis is not None:
-            await redis.aclose()
+    async def check_redis() -> str:
+        redis = None
+        try:
+            redis = Redis.from_url(
+                settings.redis_url,
+                socket_connect_timeout=2,
+                socket_timeout=2,
+            )
+            await redis.ping()
+            return "ok"
+        except Exception:
+            return "error"
+        finally:
+            if redis is not None:
+                await redis.aclose()
 
-    qdrant = None
-    try:
-        qdrant = QdrantClient(url=settings.qdrant_url, timeout=2)
-        await asyncio.to_thread(qdrant.get_collections)
-        checks["qdrant"] = "ok"
-    except Exception:
-        checks["qdrant"] = "error"
-    finally:
-        if qdrant is not None:
-            qdrant.close()
+    async def check_qdrant() -> str:
+        def probe() -> None:
+            qdrant = QdrantClient(
+                url=settings.qdrant_url,
+                timeout=1,
+                check_compatibility=False,
+            )
+            try:
+                qdrant.get_collections()
+            finally:
+                qdrant.close()
+
+        try:
+            await asyncio.to_thread(probe)
+            return "ok"
+        except Exception:
+            return "error"
+
+    async def bounded(check) -> str:
+        try:
+            return await asyncio.wait_for(check(), timeout=2.5)
+        except Exception:
+            return "error"
+
+    postgres, redis, qdrant = await asyncio.gather(
+        bounded(check_postgres),
+        bounded(check_redis),
+        bounded(check_qdrant),
+    )
+    checks = {"postgres": postgres, "redis": redis, "qdrant": qdrant}
 
     healthy = all(value == "ok" for value in checks.values())
     return JSONResponse(

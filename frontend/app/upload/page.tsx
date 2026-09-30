@@ -25,13 +25,18 @@ export default function UploadPage() {
       if (xhr.status >= 300) { setStatus("failed"); toast.error(xhr.responseText || "Upload failed"); return; }
       const data = JSON.parse(xhr.responseText); setJobId(data.job_id); setStatus("processing");
       const poll = async () => {
-        const result = await api<{status: string; n_chunks: number}>(`/ingest/${data.job_id}`);
-        setStatus(result.status);
-        if (result.status === "complete") { toast.success(`Indexed ${result.n_chunks} chunks`); return; }
-        if (result.status === "failed") { toast.error("Ingestion failed"); return; }
-        setTimeout(poll, 1200);
+        try {
+          const result = await api<{status: string; n_chunks: number; error?: string}>(`/ingest/${data.job_id}`);
+          setStatus(result.status);
+          if (result.status === "complete") { toast.success(`Indexed ${result.n_chunks} chunks`); return; }
+          if (result.status === "failed") { toast.error(result.error || "Ingestion failed"); return; }
+          window.setTimeout(() => { void poll(); }, 1200);
+        } catch (error) {
+          setStatus("failed");
+          toast.error((error as Error).message || "Could not read job status");
+        }
       };
-      poll().catch(() => { setStatus("failed"); toast.error("Could not read job status"); });
+      void poll();
     };
     const form = new FormData(); form.append("file", selected); xhr.send(form);
   }

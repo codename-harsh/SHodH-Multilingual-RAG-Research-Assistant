@@ -6,9 +6,13 @@ from app.core.config import get_settings
 
 
 class QueryEmbedder:
-    def __init__(self) -> None:
-        settings = get_settings()
-        self.client = cohere.ClientV2(api_key=settings.cohere_api_key)
+    def __init__(self, client=None, settings=None) -> None:
+        settings = settings or get_settings()
+        if client is None:
+            if not settings.cohere_api_key:
+                raise ValueError("COHERE_API_KEY is required for query embedding")
+            client = cohere.ClientV2(api_key=settings.cohere_api_key)
+        self.client = client
         self.model = settings.cohere_embed_model
 
     def embed(self, question: str) -> list[float]:

@@ -21,9 +21,17 @@ def load_golden() -> list[dict]:
 
 
 def validate(entries: list[dict]) -> None:
+    if not entries:
+        raise ValueError("Golden dataset is empty")
     placeholders = [entry for entry in entries if "REPLACE_WITH" in json.dumps(entry)]
     if placeholders:
         raise ValueError(f"Golden dataset still contains {len(placeholders)} placeholder entries")
+
+
+def validate_credentials() -> None:
+    missing = [name for name in ("COHERE_API_KEY", "GEMINI_API_KEY") if not os.getenv(name)]
+    if missing:
+        raise ValueError(f"Evaluation requires configured provider credentials: {', '.join(missing)}")
 
 
 def run_queries(entries: list[dict]) -> list[dict]:
@@ -121,6 +129,7 @@ def write_report(report: dict) -> None:
 def main() -> None:
     entries = load_golden()
     validate(entries)
+    validate_credentials()
     rows = ragas_scores(run_queries(entries))
     report = aggregate(rows)
     write_report(report)

@@ -14,7 +14,14 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(body || `Request failed (${response.status})`);
+    let message = body;
+    try {
+      const parsed = JSON.parse(body) as {detail?: unknown};
+      if (typeof parsed.detail === "string") message = parsed.detail;
+    } catch {
+      // Keep non-JSON response bodies readable as-is.
+    }
+    throw new Error(message || `Request failed (${response.status})`);
   }
   if (response.status === 204) return undefined as T;
   return response.json();

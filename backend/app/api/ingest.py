@@ -1,19 +1,17 @@
 from pathlib import Path
 from uuid import uuid4
 
-from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.auth import require_api_key
+from app.api.dependencies import get_ingestion_result_factory, get_ingestion_task
 from app.db.session import get_db
 from app.models.document import Document
 from app.models.ingestion_job import IngestionJob
 from app.schemas.ingestion import IngestAccepted, IngestStatus
-from app.workers.celery_app import celery_app
-from app.workers.ingestion import ingest_document
 
 router = APIRouter(dependencies=[Depends(require_api_key)], tags=["ingestion"])
 settings = get_settings()
@@ -21,7 +19,11 @@ UPLOAD_DIR = Path("/data/uploads")
 
 
 @router.post("/ingest", response_model=IngestAccepted, status_code=status.HTTP_202_ACCEPTED)
-async def ingest(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+async def ingest(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    ingestion_task=Depends(get_ingestion_task),
+):
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=415, detail="Only PDF files are supported")
 
@@ -57,7 +59,7 @@ async def ingest(file: UploadFile = File(...), db: AsyncSession = Depends(get_db
         db.add(IngestionJob(job_id=task_id, doc_id=doc_id))
         await db.commit()
         try:
-            ingest_document.apply_async(args=[str(doc_id), filename, str(upload_path)], task_id=task_id)
+            ingestion_task.apply_async(args=[str(doc_id), filename, str(upload_path)], task_id=task_id)
         except Exception as exc:
             await db.execute(update(Document).where(Document.id == doc_id).values(status="failed"))
             await db.commit()
@@ -76,7 +78,11 @@ async def ingest(file: UploadFile = File(...), db: AsyncSession = Depends(get_db
 
 
 @router.get("/ingest/{job_id}", response_model=IngestStatus)
-async def ingest_status(job_id: str, db: AsyncSession = Depends(get_db)):
+async def ingest_status(
+    job_id: str,
+    db: AsyncSession = Depends(get_db),
+    result_factory=Depends(get_ingestion_result_factory),
+):
     job = await db.get(IngestionJob, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Ingestion job not found")
@@ -85,7 +91,7 @@ async def ingest_status(job_id: str, db: AsyncSession = Depends(get_db)):
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    result = AsyncResult(job_id, app=celery_app)
+    result = result_factory(job_id)
     error = None
     if result.failed():
         error = str(result.result)

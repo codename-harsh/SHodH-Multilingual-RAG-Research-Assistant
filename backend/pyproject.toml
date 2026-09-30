@@ -15,7 +15,7 @@ celery = "^5.4.0"
 redis = "^5.2.1"
 qdrant-client = "^1.12.1"
 asyncpg = "^0.30.0"
-sqlalchemy = "^2.0.36"
+sqlalchemy = {version = "^2.0.36", extras = ["asyncio"]}
 alembic = "^1.14.0"
 PyMuPDF = "^1.25.1"
 langchain-text-splitters = "^0.3.5"

@@ -6,11 +6,15 @@ from app.core.config import get_settings
 
 
 class CohereEmbedder:
-    def __init__(self) -> None:
-        settings = get_settings()
+    def __init__(self, client=None, settings=None) -> None:
+        settings = settings or get_settings()
         self.batch_size = settings.embed_batch_size
         self.model = settings.cohere_embed_model
-        self.client = cohere.ClientV2(api_key=settings.cohere_api_key)
+        if client is None:
+            if not settings.cohere_api_key:
+                raise ValueError("COHERE_API_KEY is required for document ingestion")
+            client = cohere.ClientV2(api_key=settings.cohere_api_key)
+        self.client = client
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
         vectors: list[list[float]] = []
