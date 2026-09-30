@@ -2,6 +2,7 @@ from google import genai
 from google.genai import types
 
 from app.core.config import get_settings
+from app.pipeline.llm.citations import remove_unverified_citations
 
 SYSTEM_PROMPT = """You are Shodh, a grounded research assistant.
 Answer ONLY from the provided context.
@@ -23,10 +24,14 @@ class GeminiGenerator:
             f"[page {chunk['page']}, chunk {chunk['chunk_id']}]\n{chunk['text']}"
             for chunk in chunks
         )
-        prompt = f"{SYSTEM_PROMPT}\n\nCONTEXT:\n{context}\n\nUSER QUESTION:\n{question}"
+        prompt = f"RETRIEVED CONTEXT:\n{context}\n\nUSER QUESTION:\n{question}"
         response = self.client.models.generate_content(
             model=self.model,
             contents=prompt,
-            config=types.GenerateContentConfig(temperature=0.1),
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                temperature=0.1,
+            ),
         )
-        return response.text or "The answer is not present in the provided context."
+        answer = response.text or "The answer is not present in the provided context."
+        return remove_unverified_citations(answer, chunks)
