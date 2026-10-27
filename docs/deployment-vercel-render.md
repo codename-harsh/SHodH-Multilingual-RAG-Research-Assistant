@@ -37,14 +37,14 @@ Open a pull request from `codex/shodh-audit` into `main` and merge it after CI p
 
 ## 4. Create external data services
 
-1. Create a Qdrant Cloud cluster in Singapore. Copy its HTTPS cluster URL and API key.
-2. Create an S3-compatible bucket in Singapore (Cloudflare R2 works). Create an access key limited to that bucket. Note its bucket name and S3 endpoint, usually `https://<account-id>.r2.cloudflarestorage.com`; use region `auto` for R2.
+1. Create a Qdrant Cloud cluster in the closest practical region. Copy its HTTPS cluster URL and database API key.
+2. Create a private S3-compatible bucket for uploaded PDFs. Backblaze B2 is a simple option when Cloudflare R2 billing setup is unavailable; its signup does not require a credit card and its first 10 GB of storage is free. Create a bucket such as `shodh-uploads`, then create a standard application key restricted to that bucket with read/write access and `listAllBucketNames` enabled for S3 SDK compatibility. Save the bucket name, key ID, application key, S3 endpoint, and region. For B2, the endpoint is `https://s3.<region>.backblazeb2.com`, and `S3_REGION` must match the region in that endpoint (for example, `us-west-004`). Keep the bucket private. For Cloudflare R2, use its S3 endpoint and set region to `auto`.
 
 ## 5. Create Render services from the Blueprint
 
 1. In Render, choose **New → Blueprint** and select this repository's merged `main` branch.
 2. Review the `render.yaml` resources: PostgreSQL, private Key Value, API web service, and Celery worker. These managed services have paid compute/storage charges; select the sizes shown in the Blueprint or larger if required by workload.
-3. When prompted, enter the rotated Cohere and Gemini keys; Qdrant URL and key; the new Shodh shared demo key; the Vercel production origin for `CORS_ORIGINS` (for example `https://your-project.vercel.app`); and the bucket name, endpoint, access key, and secret key.
+3. When prompted, enter the rotated Cohere and Gemini keys; Qdrant URL and key; the new Shodh shared demo key; the Vercel production origin for `CORS_ORIGINS` (for example `https://your-project.vercel.app`); and the bucket name, endpoint, region, access key, and secret key. Enter the same storage settings for the API and worker.
 4. Let the API and worker deploy. The API startup runs Alembic migrations. Wait until the API health check is green.
 5. Copy the actual public API URL from the Render API service dashboard. Verify `https://<actual-api-host>/health` returns `{"status":"ok",...}` and `/ready` returns HTTP 200 with all three checks `ok`.
 
