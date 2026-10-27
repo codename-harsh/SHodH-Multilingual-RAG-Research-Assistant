@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from uuid import uuid4
 
@@ -12,6 +13,7 @@ from app.db.session import get_db
 from app.models.document import Document
 from app.models.ingestion_job import IngestionJob
 from app.schemas.ingestion import IngestAccepted, IngestStatus
+from app.core.upload_storage import delete_upload, upload_pdf
 
 router = APIRouter(dependencies=[Depends(require_api_key)], tags=["ingestion"])
 settings = get_settings()
@@ -35,6 +37,7 @@ async def ingest(
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     upload_path = UPLOAD_DIR / f"{doc_id}.pdf"
     header = b""
+    upload_reference = str(upload_path)
     try:
         with upload_path.open("xb") as output:
             while True:
@@ -55,21 +58,33 @@ async def ingest(
         if header != b"%PDF-":
             raise HTTPException(status_code=415, detail="Uploaded file is not a valid PDF")
 
+        if settings.upload_storage_backend.lower() == "s3":
+            upload_reference = await asyncio.to_thread(upload_pdf, upload_path, f"uploads/{doc_id}.pdf")
+            upload_path.unlink(missing_ok=True)
+
         db.add(Document(id=doc_id, filename=filename, status="queued"))
         db.add(IngestionJob(job_id=task_id, doc_id=doc_id))
         await db.commit()
         try:
-            ingestion_task.apply_async(args=[str(doc_id), filename, str(upload_path)], task_id=task_id)
+            ingestion_task.apply_async(args=[str(doc_id), filename, upload_reference], task_id=task_id)
         except Exception as exc:
             await db.execute(update(Document).where(Document.id == doc_id).values(status="failed"))
             await db.commit()
-            upload_path.unlink(missing_ok=True)
+            await asyncio.to_thread(delete_upload, upload_reference)
             raise HTTPException(status_code=503, detail="Ingestion queue is unavailable") from exc
     except HTTPException:
+        try:
+            await asyncio.to_thread(delete_upload, upload_reference)
+        except Exception:
+            pass
         upload_path.unlink(missing_ok=True)
         raise
     except Exception:
         await db.rollback()
+        try:
+            await asyncio.to_thread(delete_upload, upload_reference)
+        except Exception:
+            pass
         upload_path.unlink(missing_ok=True)
         raise
     finally:

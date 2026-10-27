@@ -19,7 +19,10 @@ class RetrievedChunk:
 class HybridRetriever:
     def __init__(self, client=None, sparse_model=None, settings=None) -> None:
         settings = settings or get_settings()
-        self.client = client if client is not None else QdrantClient(url=settings.qdrant_url)
+        self.client = client if client is not None else QdrantClient(
+            url=settings.qdrant_url,
+            api_key=settings.qdrant_api_key or None,
+        )
         self.collection = settings.qdrant_collection
         self.sparse_model = (
             sparse_model if sparse_model is not None else SparseTextEmbedding(model_name="Qdrant/bm25")
