@@ -1,8 +1,10 @@
 import asyncio
+import logging
 from pathlib import Path
 from uuid import UUID
 
 from app.core.config import get_settings
+from app.core.upload_storage import delete_upload, materialize_pdf
 from app.db.session import SessionLocal
 from app.models.document import Document
 from app.pipeline.ingestion.chunker import chunk_pages
@@ -10,6 +12,8 @@ from app.pipeline.ingestion.embeddings import CohereEmbedder
 from app.pipeline.ingestion.pdf import extract_pdf_pages
 from app.pipeline.ingestion.qdrant import QdrantDocumentStore
 from app.workers.celery_app import celery_app
+
+logger = logging.getLogger(__name__)
 
 
 async def _run_ingestion(doc_id: UUID, filename: str, upload_path: str) -> int:
@@ -21,7 +25,8 @@ async def _run_ingestion(doc_id: UUID, filename: str, upload_path: str) -> int:
         await session.commit()
 
     try:
-        pages = extract_pdf_pages(upload_path)
+        local_path, is_temporary = await asyncio.to_thread(materialize_pdf, upload_path)
+        pages = extract_pdf_pages(str(local_path))
         chunks = chunk_pages(pages)
         if not chunks:
             raise ValueError("No extractable text was found in the PDF")
@@ -48,9 +53,11 @@ async def _run_ingestion(doc_id: UUID, filename: str, upload_path: str) -> int:
         raise
     finally:
         try:
-            Path(upload_path).unlink(missing_ok=True)
-        except OSError:
-            pass
+            await asyncio.to_thread(delete_upload, upload_path)
+        except Exception:
+            logger.exception("Could not delete processed upload %s", upload_path)
+        if "is_temporary" in locals() and is_temporary:
+            local_path.unlink(missing_ok=True)
 
 
 @celery_app.task(name="shodh.ingest_document")

@@ -20,6 +20,16 @@ def test_explicit_database_url_override_is_preserved():
     assert settings.database_url == "postgresql+asyncpg://alice:secret@db.example:5432/research"
 
 
+@pytest.mark.parametrize("url", [
+    "postgres://alice:secret@db.example:5432/research",
+    "postgresql://alice:secret@db.example:5432/research",
+])
+def test_hosted_postgres_urls_are_normalized_for_async_driver(url):
+    settings = Settings(database_url=url)
+
+    assert settings.database_url == "postgresql+asyncpg://alice:secret@db.example:5432/research"
+
+
 @pytest.mark.parametrize(
     "override",
     [

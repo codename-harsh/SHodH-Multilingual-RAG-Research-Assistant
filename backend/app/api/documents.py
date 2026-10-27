@@ -36,7 +36,7 @@ async def delete_document(doc_id: UUID, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Document not found")
 
     settings = get_settings()
-    client = QdrantClient(url=settings.qdrant_url, timeout=5)
+    client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key or None, timeout=5)
     try:
         if await asyncio.to_thread(client.collection_exists, settings.qdrant_collection):
             await asyncio.to_thread(

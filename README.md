@@ -225,19 +225,17 @@ curl http://localhost:8000/ready
 
 Open `http://localhost:3000`. To enable the optional key gate, set `SHODH_API_KEY` and `NEXT_PUBLIC_REQUIRE_API_KEY=true` in `.env`, then rebuild the frontend. Provider keys are only needed to run ingestion and generation.
 
-### Railway / Render
+### Public demo: Vercel + Render
 
-1. Push the repository to GitHub.
-2. Create managed PostgreSQL, Redis, and Qdrant services, or use hosted equivalents.
-3. Deploy the backend from `backend/Dockerfile` and run Alembic migrations on startup.
-4. Deploy the frontend as a Next.js service, setting `NEXT_PUBLIC_API_URL` to the public backend URL.
-5. Configure `COHERE_API_KEY`, `GEMINI_API_KEY`, `DATABASE_URL`, `REDIS_URL`, `QDRANT_URL`, `SHODH_API_KEY`, and `CORS_ORIGINS` as platform secrets/environment variables.
-6. Set the GitHub `DEPLOY_HOOK_URL` secret if the platform supports deploy hooks.
-7. Push to `main`; CI tests, builds, publishes GHCR images, then invokes the configured deploy hook.
+The checked-in `render.yaml` describes a Render API, Celery worker, PostgreSQL database, and private Redis-compatible Key Value service. Qdrant Cloud and S3-compatible object storage are external managed services: configure their URLs and credentials in the Render environment group. PDFs use the bucket in hosted mode so the API and worker can run on separate machines. Local Docker Compose continues to use its shared local volume.
 
-For a real production launch, do not expose PostgreSQL, Redis, or Qdrant directly to the public internet.
+Deploy the frontend separately on Vercel by importing this GitHub repository and setting **Root Directory** to `frontend`. Configure `NEXT_PUBLIC_API_URL` with the public Render API URL and `NEXT_PUBLIC_REQUIRE_API_KEY=true` before the production build. Configure the matching API key only on the backend as `SHODH_API_KEY`, and include the Vercel production origin in Render's `CORS_ORIGINS`.
 
-Railway/Render credentials and deploy hooks belong in GitHub Actions secrets rather than source control. The compose file is also hardened with restart policies, bounded resources, and rotating JSON logs.
+This shared API key is only a controlled-demo gate. It is not user authentication or tenant isolation. Do not put private documents or sensitive data in a public demo. A public multi-user launch still needs real user authentication, per-user document access control, rate limits, backups, and monitoring. The example resource sizes are starting points, not a claim of tested autoscaling capacity. Do not expose PostgreSQL, Redis, or Qdrant to the public internet.
+
+The Render Blueprint asks for provider secrets during setup; keep these in provider dashboards, never in Git or `NEXT_PUBLIC_*` variables. Vercel deploys only the Next.js frontend. The API and worker remain separate long-running services.
+
+See [`docs/deployment-vercel-render.md`](docs/deployment-vercel-render.md) for the ordered setup steps and PowerShell commands.
 
 ## Documentation
 

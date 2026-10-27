@@ -1,0 +1,134 @@
+databases:
+  - name: shodh-postgres
+    databaseName: shodh
+    user: shodh
+    plan: 0.5c-1g
+    region: singapore
+    storageAutoscalingEnabled: true
+
+services:
+  - type: keyvalue
+    name: shodh-redis
+    region: singapore
+    plan: 256mb
+    maxmemoryPolicy: noeviction
+    persistenceMode: journal-snapshot
+    ipAllowList: []
+
+  - type: web
+    name: shodh-api
+    runtime: docker
+    region: singapore
+    plan: 1c-2g
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /ready
+    maxShutdownDelaySeconds: 60
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: COHERE_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: SHODH_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shodh-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: shodh-redis
+          property: connectionString
+      - key: QDRANT_COLLECTION
+        value: shodh_docs
+      - key: UPLOAD_STORAGE_BACKEND
+        value: s3
+      - key: COHERE_EMBED_MODEL
+        value: embed-multilingual-v3.0
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: HYBRID_ALPHA
+        value: "0.7"
+      - key: CHUNK_SIZE
+        value: "512"
+      - key: CHUNK_OVERLAP
+        value: "128"
+      - key: EMBED_BATCH_SIZE
+        value: "96"
+      - key: MAX_UPLOAD_MB
+        value: "25"
+      - key: WEB_CONCURRENCY
+        value: "1"
+
+  - type: worker
+    name: shodh-worker
+    runtime: docker
+    region: singapore
+    plan: 1c-2g
+    dockerfilePath: ./backend/worker.Dockerfile
+    dockerContext: .
+    dockerCommand: celery -A app.workers.celery_app.celery_app worker --loglevel=INFO --concurrency=1
+    maxShutdownDelaySeconds: 120
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: COHERE_API_KEY
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shodh-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: shodh-redis
+          property: connectionString
+      - key: QDRANT_COLLECTION
+        value: shodh_docs
+      - key: UPLOAD_STORAGE_BACKEND
+        value: s3
+      - key: COHERE_EMBED_MODEL
+        value: embed-multilingual-v3.0
+      - key: CHUNK_SIZE
+        value: "512"
+      - key: CHUNK_OVERLAP
+        value: "128"
+      - key: EMBED_BATCH_SIZE
+        value: "96"
+      - key: MAX_UPLOAD_MB
+        value: "25"

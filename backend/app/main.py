@@ -15,6 +15,8 @@ from app.api.evaluate import router as evaluate_router
 from app.core.config import get_settings
 from app.db.session import engine
 settings = get_settings()
+if settings.app_env.lower() in {"production", "prod"} and not settings.shodh_api_key:
+    raise RuntimeError("SHODH_API_KEY must be configured in production")
 
 app = FastAPI(
     title="Shodh API",
@@ -72,6 +74,7 @@ async def ready() -> JSONResponse:
         def probe() -> None:
             qdrant = QdrantClient(
                 url=settings.qdrant_url,
+                api_key=settings.qdrant_api_key or None,
                 timeout=1,
                 check_compatibility=False,
             )

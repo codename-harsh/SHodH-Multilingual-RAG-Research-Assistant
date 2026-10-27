@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,6 +16,7 @@ class Settings(BaseSettings):
     postgres_db: str = "shodh"
     redis_url: str = "redis://localhost:6379/0"
     qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: str = ""
     qdrant_collection: str = "shodh_docs"
     cohere_api_key: str = ""
     cohere_embed_model: str = "embed-multilingual-v3.0"
@@ -30,13 +32,26 @@ class Settings(BaseSettings):
     hybrid_alpha: float = Field(default=0.7, ge=0.0, le=1.0)
     max_upload_mb: int = Field(default=25, gt=0)
     cors_origins: str = "http://localhost:3000"
+    upload_storage_backend: Literal["local", "s3"] = "local"
+    s3_bucket: str = ""
+    s3_endpoint_url: str = ""
+    s3_region: str = "auto"
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @model_validator(mode="before")
     @classmethod
     def resolve_database_url(cls, values):
-        if not isinstance(values, dict) or values.get("database_url"):
+        if not isinstance(values, dict):
+            return values
+        explicit_url = values.get("database_url")
+        if explicit_url:
+            if explicit_url.startswith("postgres://"):
+                values["database_url"] = "postgresql+asyncpg://" + explicit_url[len("postgres://") :]
+            elif explicit_url.startswith("postgresql://"):
+                values["database_url"] = "postgresql+asyncpg://" + explicit_url[len("postgresql://") :]
             return values
         values["database_url"] = URL.create(
             "postgresql+asyncpg",
@@ -47,6 +62,15 @@ class Settings(BaseSettings):
             database=values.get("postgres_db", "shodh"),
         ).render_as_string(hide_password=False)
         return values
+
+    @model_validator(mode="after")
+    def validate_hosted_storage(self):
+        if self.app_env.lower() in {"production", "prod"}:
+            if self.upload_storage_backend == "s3" and not all(
+                (self.s3_bucket, self.s3_access_key_id, self.s3_secret_access_key)
+            ):
+                raise ValueError("S3 bucket and credentials are required when S3 upload storage is enabled")
+        return self
 
 
 @lru_cache
